@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 interface ChatTurn {
   role: "user" | "assistant";
@@ -233,24 +233,43 @@ function StructuredMarkdown({ content }: { content: string }) {
   return <div className="md-root">{elements}</div>;
 }
 
+async function fetchWithTimeoutAndRetry(
+  url: string,
+  options: RequestInit,
+  retries = 0,
+  timeoutMs = 15000
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      clearTimeout(timer);
+      return response;
+    } catch (error) {
+      clearTimeout(timer);
+      if (attempt === retries) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+  throw new Error("Network request failed.");
+}
+
 export default function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     localStorage.getItem("cti-theme") === "dark" ? "dark" : "light"
   );
 
-  const [backendUrl, setBackendUrl] = useState<string>(
-    () => localStorage.getItem("cti-backend-url") || ""
-  );
-  const [accessKey, setAccessKey] = useState<string>(
-    () => localStorage.getItem("cti-access-key") || ""
-  );
-
   const [isOnline, setIsOnline] = useState<boolean>(false);
-  const [isTesting, setIsTesting] = useState<boolean>(false);
+  const [isCheckingBackend, setIsCheckingBackend] = useState<boolean>(true);
   const [connectionFeedback, setConnectionFeedback] = useState<{
     type: "idle" | "error" | "success";
     message: string;
-  }>({ type: "idle", message: "" });
+  }>({ type: "idle", message: "Checking the secure Vercel API connection..." });
   const [healthStats, setHealthStats] = useState<HealthResponse | null>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("cti");
@@ -272,113 +291,52 @@ export default function App() {
     localStorage.setItem("cti-theme", theme);
   }, [theme]);
 
-  const sanitizeBackendUrl = (raw: string): string => {
-    let cleaned = raw.replace(/[\s\u200B-\u200D\uFEFF]/g, "").replace(/\/+$/, "");
-    if (cleaned && !/^https?:\/\//i.test(cleaned)) {
-      cleaned = `https://${cleaned}`;
-    }
-    return cleaned;
-  };
-
-  const fetchWithTimeoutAndRetry = async (
-    url: string,
-    options: RequestInit,
-    retries = 1,
-    timeoutMs = 15000
-  ): Promise<Response> => {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        return response;
-      } catch (err) {
-        clearTimeout(timer);
-        if (attempt === retries) throw err;
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      }
-    }
-    throw new Error("Network request failed.");
-  };
-
-  const handleSaveAndTest = async (e?: FormEvent) => {
-    if (e) e.preventDefault();
-    const cleanUrl = sanitizeBackendUrl(backendUrl);
-    const cleanKey = accessKey.trim();
-
-    setBackendUrl(cleanUrl);
-    localStorage.setItem("cti-backend-url", cleanUrl);
-    localStorage.setItem("cti-access-key", cleanKey);
-
-    if (!cleanUrl) {
-      setIsOnline(false);
-      setConnectionFeedback({
-        type: "error",
-        message: "Please paste the Cloudflare tunnel URL printed by your Google Colab notebook.",
-      });
-      return;
-    }
-
-    setIsTesting(true);
-    setConnectionFeedback({ type: "idle", message: "" });
-
+  // The browser talks only to the same-origin Vercel API. Gateway credentials
+  // remain in Vercel environment variables and are never exposed to this app.
+  const checkBackendHealth = useCallback(async () => {
+    setIsCheckingBackend(true);
     try {
       const res = await fetchWithTimeoutAndRetry(
-        `${cleanUrl}/api/health`,
-        {
-          method: "GET",
-          headers: {
-            "X-Access-Key": cleanKey,
-          },
-        },
-        1,
-        15000
+        "/api/cti/health",
+        { method: "GET", headers: { Accept: "application/json" } },
+        0,
+        12000
       );
 
-      if (res.status === 401) {
-        setIsOnline(false);
-        setHealthStats(null);
-        setConnectionFeedback({
-          type: "error",
-          message: "Access key rejected (401 Unauthorized). Verify the Access key printed in Colab.",
-        });
-        return;
-      }
-
       if (!res.ok) {
-        setIsOnline(false);
-        setHealthStats(null);
-        setConnectionFeedback({
-          type: "error",
-          message: `Backend returned HTTP ${res.status}. Re-run the "Serve the RAG pipeline" cell in Colab.`,
-        });
-        return;
+        const body = await res.text();
+        throw new Error(`Vercel API returned HTTP ${res.status}${body ? `: ${body.slice(0, 180)}` : ""}`);
       }
 
       const data: HealthResponse = await res.json();
+      if (data.status !== "ok") {
+        throw new Error("The backend responded, but its health status is not OK.");
+      }
+
       setIsOnline(true);
       setHealthStats(data);
       setConnectionFeedback({
         type: "success",
-        message: `Connected to ${data.model || "Gemma 2 2B"} · ${
-          data.vector_chunks ?? 0
-        } vector chunks & ${data.cve_records ?? 0} CVE records indexed.`,
+        message: `Connected through Vercel · ${data.model || "Gemma 2 2B"} · ${data.vector_chunks ?? 0} vector chunks indexed.`,
       });
-    } catch {
+    } catch (error) {
       setIsOnline(false);
       setHealthStats(null);
       setConnectionFeedback({
         type: "error",
-        message: "Could not reach the backend. The Colab tunnel URL may have changed or the runtime stopped.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to reach the backend through the Vercel API proxy. Check that Colab is running.",
       });
     } finally {
-      setIsTesting(false);
+      setIsCheckingBackend(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void checkBackendHealth();
+  }, [checkBackendHealth]);
 
   const buildStructuredQueryPayload = (userQuestion: string): string => {
     // Appends structured formatting instructions so both initial and follow-up turns
@@ -397,15 +355,6 @@ export default function App() {
     const rawQuestion = (overrideQuestion ?? ctiInput).trim();
     if (!rawQuestion || isAnalyzing) return;
 
-    const cleanUrl = sanitizeBackendUrl(backendUrl);
-    if (!cleanUrl) {
-      setConnectionFeedback({
-        type: "error",
-        message: "Please enter your Backend URL and Access key above and click Save & test first.",
-      });
-      return;
-    }
-
     const userTurn: ChatTurn = { role: "user", content: rawQuestion };
     const nextHistory = [...chatHistory, userTurn];
     setChatHistory(nextHistory);
@@ -414,12 +363,12 @@ export default function App() {
 
     try {
       const res = await fetchWithTimeoutAndRetry(
-        `${cleanUrl}/api/query`,
+        "/api/cti/query",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Access-Key": accessKey.trim(),
+            Accept: "application/json",
           },
           body: JSON.stringify({
             question: buildStructuredQueryPayload(rawQuestion),
@@ -432,11 +381,11 @@ export default function App() {
           }),
         },
         0,
-        95000
+        58000
       );
 
       if (res.status === 401) {
-        throw new Error("Invalid Access key (401). Click Save & test above with the current Colab key.");
+        throw new Error("Gateway authentication failed (401). Check the CTI_GATEWAY_KEY configured in Vercel and the matching Cloud Run secret.");
       }
       if (!res.ok) {
         throw new Error(`Backend returned HTTP ${res.status}.`);
@@ -454,10 +403,11 @@ export default function App() {
       setActiveSources(data.sources_markdown || "");
       setIsOnline(true);
     } catch (err: unknown) {
+      setIsOnline(false);
       const msg =
         err instanceof Error
           ? err.message
-          : "Could not reach the backend. Check your Colab tunnel URL.";
+          : "Could not reach the backend through the Vercel API proxy. Check that Colab is running.";
       setChatHistory([
         ...nextHistory,
         {
@@ -474,24 +424,15 @@ export default function App() {
     const rawEmail = emailInput.trim();
     if (!rawEmail || isAnalyzing) return;
 
-    const cleanUrl = sanitizeBackendUrl(backendUrl);
-    if (!cleanUrl) {
-      setConnectionFeedback({
-        type: "error",
-        message: "Please enter your Backend URL and Access key above and click Save & test first.",
-      });
-      return;
-    }
-
     setIsAnalyzing(true);
     try {
       const res = await fetchWithTimeoutAndRetry(
-        `${cleanUrl}/api/query`,
+        "/api/cti/query",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Access-Key": accessKey.trim(),
+            Accept: "application/json",
           },
           body: JSON.stringify({
             question: rawEmail,
@@ -501,11 +442,11 @@ export default function App() {
           }),
         },
         0,
-        95000
+        58000
       );
 
       if (res.status === 401) {
-        throw new Error("Invalid Access key (401).");
+        throw new Error("Gateway authentication failed (401). Check the Vercel and Cloud Run gateway-key configuration.");
       }
       if (!res.ok) {
         throw new Error(`Backend returned HTTP ${res.status}.`);
@@ -517,10 +458,11 @@ export default function App() {
       setActiveSources(data.sources_markdown || "");
       setIsOnline(true);
     } catch (err: unknown) {
+      setIsOnline(false);
       const msg =
         err instanceof Error
           ? err.message
-          : "Could not reach the backend. Check your Colab tunnel URL.";
+          : "Could not reach the backend through the Vercel API proxy. Check that Colab is running.";
       setEmailAssessment(`**Triage Error:** ${msg}`);
     } finally {
       setIsAnalyzing(false);
@@ -600,52 +542,37 @@ export default function App() {
 
       {/* Main Content Container */}
       <main className="container">
-        {/* Connection Card */}
+        {/* Backend connection status: credentials are handled server-side by Vercel. */}
         <section className="card connection-card">
-          <form className="connection-grid" onSubmit={handleSaveAndTest}>
-            <div className="input-group">
-              <label htmlFor="backend-url">Backend URL</label>
-              <input
-                id="backend-url"
-                type="text"
-                placeholder="https://your-tunnel-url.trycloudflare.com"
-                value={backendUrl}
-                onChange={(e) => setBackendUrl(e.target.value)}
-                autoComplete="off"
-              />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ flex: "1 1 320px" }}>
+              <strong>Secure backend connection</strong>
+              <p className="helper-note">
+                This website connects through its secure Vercel API proxy. Backend URLs and access keys are configured on the server and are not entered or stored in your browser.
+              </p>
+              {connectionFeedback.message && (
+                <p className={`connection-feedback ${connectionFeedback.type}`}>
+                  {connectionFeedback.message}
+                </p>
+              )}
             </div>
-
-            <div className="input-group">
-              <label htmlFor="access-key">Access key</label>
-              <input
-                id="access-key"
-                type="password"
-                placeholder="Paste access key"
-                value={accessKey}
-                onChange={(e) => setAccessKey(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-
             <button
-              type="submit"
+              type="button"
               className="btn-primary save-test-btn"
-              disabled={isTesting}
+              onClick={() => void checkBackendHealth()}
+              disabled={isCheckingBackend}
             >
-              {isTesting ? "Testing..." : "Save & test"}
+              {isCheckingBackend ? "Checking..." : "Check connection"}
             </button>
-          </form>
-
-          <p className="helper-note">
-            Run the notebook in Google Colab (GPU runtime) up to the final &ldquo;Serve the RAG pipeline&rdquo; cell,
-            then paste the printed URL and access key here. The Cloudflare URL changes every time the cell runs.
-          </p>
-
-          {connectionFeedback.message && (
-            <p className={`connection-feedback ${connectionFeedback.type}`}>
-              {connectionFeedback.message}
-            </p>
-          )}
+          </div>
         </section>
 
         {/* Hero Heading */}
