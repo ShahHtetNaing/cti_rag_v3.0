@@ -1,322 +1,267 @@
 # CTI RAG Assistant v2.0
 
-A multi-source **Cyber Threat Intelligence (CTI) Retrieval-Augmented Generation assistant** designed for multi-turn CTI research and preliminary phishing-email triage. Developed for CP5403 Assessment 2 (Pathway A: RAG).
+A Cyber Threat Intelligence (CTI) Retrieval-Augmented Generation assistant designed to help security analysts research cyber threats, vulnerabilities, incidents, and phishing-related information using retrieved evidence.
 
-The project combines semantic and keyword-based retrieval, structured threat intelligence lookups, and evidence-grounded language generation to help analysts investigate cybersecurity threats using curated CTI datasets.
+## How to Run the Program
 
-## Technology Stack
+Follow these steps in order to start the CTI RAG Assistant.
 
-- **Base model:** `google/gemma-2-2b-it`, 4-bit NF4 quantization using `bitsandbytes`, with greedy decoding.
-- **Retrieval:** ChromaDB semantic search + BM25 keyword search (hybrid retrieval), with structured CVE and ransomware lookups and exact domain matching against a phishing blocklist.
-- **Embeddings:** `sentence-transformers/all-MiniLM-L6-v2`.
-- **Language model hosting:** Google Colab with a CUDA-enabled GPU.
-- **Backend gateway:** FastAPI deployed on Google Cloud Run.
-- **Frontend:** Vercel-hosted React + TypeScript application built with Vite.
-- **Additional interface:** Gradio inside the Google Colab notebook.
+### Step 1: Open the Google Colab Notebook
 
-The web interface supports CTI follow-up conversations, email triage samples, light/dark themes, and a dataset citation panel.
+1. Open this GitHub repository.
+2. Navigate to the `notebook` folder.
+3. Download the notebook:
 
-## Architecture
+   `notebook/CTI_RAG_Assistant.ipynb`
 
-```mermaid
-flowchart TD
-    U[Analyst Browser] --> V[Vercel React + TypeScript Frontend]
-    V --> API[Vercel API Routes]
-    API -->|Authenticated requests| G[Google Cloud Run Gateway<br/>FastAPI]
-    G -->|X-Access-Key| C[Google Colab Backend<br/>FastAPI]
-    C --> P[process_soc_query]
+4. Open [Google Colab](https://colab.research.google.com/).
+5. Select **File → Upload notebook**.
+6. Upload `CTI_RAG_Assistant.ipynb`.
 
-    P --> R1[ChromaDB + BM25<br/>Narrative CTI Retrieval]
-    P --> R2[Structured CVE and<br/>Ransomware Lookups]
-    P --> R3[PhishDestroy<br/>Domain Blocklist]
-    P --> R4[ThreatCluster Live API<br/>Optional]
+You can also open the notebook directly from Google Colab if you have connected your GitHub repository.
 
-    R1 --> M[Gemma 2 2B Instruct<br/>4-bit Quantization]
-    R2 --> M
-    R3 --> M
-    R4 --> M
-    M --> C
-    C --> G
-    G --> API
-    API --> V
-    V --> U
-```
+### Step 2: Configure the Runtime
 
-### Architecture Overview
+For faster processing, configure the Google Colab runtime before executing the notebook.
 
-The system separates the user interface, gateway, and AI processing backend:
+1. Open the notebook in Google Colab.
+2. Select **Runtime → Change runtime type**.
+3. Under **Hardware accelerator**, select **T4 GPU**, if available.
+4. Enable or select **High-RAM** if the option is available in your Colab account and runtime settings.
+5. Click **Save**.
 
-1. **Vercel:** Hosts the React and TypeScript frontend and the project's API routes.
-2. **Google Cloud Run:** Runs the FastAPI gateway. It authenticates incoming requests and forwards them to the Colab backend.
-3. **Google Colab:** Hosts the Gemma model, hybrid retrieval pipeline, structured CTI lookups, and API serving endpoints.
-4. **ChromaDB and BM25:** Retrieve relevant narrative CTI records using semantic and keyword-based search.
-5. **External data services:** Hugging Face datasets provide the main CTI knowledge sources, while the ThreatCluster API can optionally provide live enrichment.
+**Recommended configuration:**
 
-The gateway uses environment variables to authenticate requests and communicate with the Colab backend. API credentials should remain in server-side environment variables or Colab Secrets and must never be exposed in frontend source code.
-
-## Repository Structure
-
-| Path | Contents |
+| Setting | Recommended option |
 |---|---|
-| `notebook/CTI_RAG_Assistant.ipynb` | Google Colab pipeline: dataset loading, preprocessing, chunking, hybrid retrieval, Gemma inference, evaluation, Gradio interface, and FastAPI serving |
-| `frontend/` | Vite + React + TypeScript web application |
-| `frontend/src/` | Frontend application components and interface logic |
-| `api/cti/health.js` | Vercel API route for backend health checks |
-| `api/cti/query.js` | Vercel API route for CTI and email-triage requests |
-| `cloud-run-gateway/main.py` | FastAPI gateway for authentication and forwarding requests to Colab |
-| `cloud-run-gateway/Dockerfile` | Container configuration for Cloud Run |
-| `cloud-run-gateway/requirements.txt` | Gateway-specific Python dependencies |
-| `evaluation/` | Evaluation questions and API evaluation scripts |
-| `requirements.txt` | Python dependencies used by the notebook and evaluation |
-| `vercel.json` | Vercel build and SPA routing configuration |
+| Runtime environment | Google Colab |
+| Hardware accelerator | T4 GPU |
+| System RAM | High-RAM, if available |
+| Notebook | `CTI_RAG_Assistant.ipynb` |
 
-## Key Capabilities
+**Important:** T4 GPU and High-RAM availability depends on your Google Colab plan, usage limits, and available resources. A GPU does not automatically accelerate every operation; retrieval, embedding, and language generation may use different resources.
 
-### 1. Multi-turn CTI Research and Follow-up Chat
+### Step 3: Configure Secrets and API Keys
 
-Analysts can ask an initial CTI question and continue the investigation through follow-up questions.
+Before running the notebook, configure the required secrets in Google Colab.
 
-Examples include:
-
-- Explaining a cybersecurity threat in simple language.
-- Investigating a particular CVE.
-- Finding documented real-world attack cases.
-- Identifying relevant indicators of compromise (IOCs).
-- Requesting defensive recommendations and mitigation steps.
-
-Conversation history is passed through the `history` field to help maintain context across related questions.
-
-### 2. Multi-source Evidence Retrieval
-
-The assistant uses multiple CTI sources, including:
-
-- Historical cyber threat intelligence reports.
-- Threat incident summaries.
-- CVE exploitation signals.
-- Ransomware leak-site victim records.
-- Curated CTI question-and-answer records.
-- Phishing-domain blocklist data.
-- Optional live ThreatCluster API enrichment.
-
-The retrieval pipeline combines semantic and keyword search with structured lookups where applicable.
-
-### 3. Evidence-grounded Answers and Citations
-
-The assistant is designed to generate answers grounded in retrieved CTI records.
-
-Citation identifiers such as `[S#]`, `[C#]`, `[V#]`, `[R#]`, and `[L#]` identify the corresponding retrieved sources.
-
-When the selected datasets do not contain sufficient supporting evidence, the assistant should clearly communicate the limitation rather than inventing facts.
-
-The answer format should suit the question: simple questions should receive concise explanations, while complex investigation questions may require more detailed case studies and defensive recommendations.
-
-### 4. Preliminary Phishing Email Triage
-
-The email-triage feature examines suspicious email characteristics, including:
-
-- Sender and Reply-To mismatches.
-- Suspicious URLs and extracted domains.
-- Urgency and social-engineering language.
-- Exact domain matches against the PhishDestroy blocklist.
-- Optional ThreatCluster domain enrichment.
-
-The optional ThreatCluster integration uses domain-based lookup rather than transmitting the complete raw email text.
-
-The feature provides preliminary investigative guidance and does not replace a secure email gateway or a full malware analysis environment.
-
-## Running the Backend in Google Colab
-
-1. Open `notebook/CTI_RAG_Assistant.ipynb` in Google Colab.
-2. Select **Runtime → Change runtime type** and choose a CUDA-enabled GPU, such as T4 when available.
-3. Open **Secrets** using the key icon in the left sidebar.
-4. Add the required secrets:
+Open the **Secrets** panel (key icon) and add the credentials required by the notebook.
 
 | Secret | Purpose |
 |---|---|
-| `HF_TOKEN` | Hugging Face read token. Accept the Gemma 2 model licence before downloading the model. |
-| `THREATCLUSTER_API_KEY` | Optional API key for live ThreatCluster enrichment. |
-| `CTI_ACCESS_KEY` | Backend access key used to authenticate gateway requests. |
+| `HF_TOKEN` | Hugging Face access for downloading supported datasets and models |
+| `CTI_ACCESS_KEY` | Secures communication with the Colab backend |
+| `THREATCLUSTER_API_KEY` | Optional access to the ThreatCluster API |
 
-5. Enable notebook access to the required secrets.
-6. Select **Runtime → Run all**.
-7. Wait for the model, datasets, vector store, and API server to initialize.
-8. Keep the Colab runtime active while using the application.
+Enable notebook access to the secrets where required.
 
-**Important:** The Colab backend must remain available for the Cloud Run gateway to forward requests successfully. If the runtime disconnects or restarts, the backend URL and access configuration may need to be updated.
+Never publish API keys, access tokens, or private credentials in GitHub or frontend source code.
 
-## Deploying the Gateway on Google Cloud Run
+### Step 4: Run the Notebook
 
-The gateway source code is located in `cloud-run-gateway/`.
+1. Confirm that the runtime is connected.
+2. Execute the notebook cells in their intended order.
+3. Allow the notebook to install dependencies, load datasets, initialize the retrieval system, and load the language model.
+4. Wait until the backend initialization process finishes.
+5. Check the final output for the backend service URL and startup confirmation.
 
-### Required environment variables
+Keep the Colab runtime running while using the website. If the runtime disconnects or stops, the backend may become unavailable.
 
-Configure the following environment variables in Cloud Run:
+### Step 5: Start the Secure Backend Connection
 
-| Variable | Purpose |
+The deployed application uses a secure connection architecture:
+
+**Analyst Browser → Vercel Frontend → Vercel API Proxy → Cloud Run Gateway → Google Colab Backend**
+
+The backend and access keys are configured on the server. Users do not need to enter backend URLs or access keys in the browser.
+
+The Cloud Run gateway uses the following server-side configuration:
+
+| Environment variable | Purpose |
 |---|---|
-| `COLAB_BACKEND_URL` | Base URL of the running Colab backend |
-| `COLAB_ACCESS_KEY` | Access key used by the gateway to authenticate with Colab |
-| `GATEWAY_API_KEY` | Secret key used to authenticate incoming gateway requests |
+| `COLAB_BACKEND_URL` | Colab backend URL |
+| `COLAB_ACCESS_KEY` | Authentication key forwarded to the Colab backend |
+| `GATEWAY_API_KEY` | Authentication key used by the Vercel API proxy to access the gateway |
 
-Do not commit actual API keys, access tokens, or secrets to GitHub.
+Ensure these variables are configured in the appropriate deployment environment before testing the application.
 
-### Gateway endpoints
+### Step 6: Open the CTI RAG Assistant Website
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/healthz` | Checks whether the gateway service is running |
-| `GET` | `/api/health` | Authenticated health request forwarded to Colab |
-| `POST` | `/api/query` | Authenticated query request forwarded to Colab |
+After the Colab notebook has completed initialization and the backend is running, open:
 
-The gateway checks the incoming `X-Gateway-Key` header and forwards requests to the Colab backend using the `X-Access-Key` header.
+**[https://cti-rag-v3-0.vercel.app/](https://cti-rag-v3-0.vercel.app/)**
 
-The Cloud Run service should be configured with the appropriate environment variables and deployment permissions before connecting the frontend.
+Wait for the connection status to appear.
 
-## Deploying the Frontend on Vercel
+The expected successful connection message is:
 
-1. Open Vercel and select **Add New → Project**.
-2. Import the GitHub repository.
-3. Keep the repository root as the project root if using the supplied `vercel.json`.
-4. Verify that the build command and output directory are configured correctly.
-5. Add the required server-side environment variables for the Vercel API routes and Cloud Run connection, using the names expected by the current API route implementation.
-6. Deploy the project.
-7. Open the deployed website and verify that the backend connection and health check work.
+- **Backend online**
+- **Secure backend connection**
+- This website connects through its secure Vercel API proxy. Backend URLs and access keys are configured on the server and are not entered or stored in your browser.
+- **Connected through Vercel · google/gemma-2-2b-it · 94894 vector chunks indexed.**
 
-Every push to the configured production branch can trigger a new deployment.
+The application should also display the **Check connection** option.
 
-**Security note:** Gateway credentials must be handled by server-side API routes. Do not place private API keys directly in React components or expose them through `VITE_` environment variables.
+When these indicators appear, the website is reporting that it has connected to the backend through the Vercel API proxy and is using the configured Gemma model and indexed vector collection.
 
-### Local Frontend Development
+### Step 7: Ask Questions to the CTI Research Assistant
 
-```bash
-cd frontend
+Once the backend connection is successful, you can start asking questions about Cyber Threat Intelligence.
 
-npm install
+For example:
 
-npm run dev
-```
+**Basic CTI question**
 
-The local development server normally runs at:
+> What is phishing, and how can organizations prevent it?
+
+**CVE investigation**
+
+> Explain CVE-2021-26855 and describe the security risks associated with it.
+
+**Threat research**
+
+> What is a wiper attack? Explain it in simple terms, provide a documented real-world example, and recommend defensive measures.
+
+**Healthcare ransomware research**
+
+> Identify two documented ransomware incidents involving healthcare organizations. Explain their impacts and how the organizations responded.
+
+**Incident analysis**
+
+> What are the common techniques used by ransomware groups to gain initial access to an organization's network?
+
+The assistant uses retrieved CTI information to support its responses. Check the citations and source references provided with the answers.
+
+If the selected datasets do not contain sufficient evidence, the assistant should indicate that the information cannot be found in the available sources rather than inventing facts.
+
+### Step 8: Troubleshooting
+
+| Problem | Recommended action |
+|---|---|
+| Backend offline | Check whether the Colab runtime is still running and the backend service started successfully |
+| Secure connection failed | Check the Vercel API proxy and Cloud Run gateway configuration |
+| Authentication error | Verify the configured gateway and Colab access keys |
+| Notebook runs slowly | Check the runtime type, GPU availability, RAM usage, and model initialization |
+| No relevant CTI results | Check dataset loading, indexing, and retrieval configuration |
+| Website cannot reach backend | Check the Cloud Run service and the Colab backend URL |
+
+If you restart the Colab runtime, you may need to execute the notebook again and update the backend URL in the server-side configuration if it has changed.
+
+---
+
+## System Architecture
 
 ```text
-http://localhost:5173
+Analyst / Security Researcher
+          |
+          v
+Vercel React Frontend
+          |
+          v
+Vercel API Routes
+          |
+          v
+Cloud Run FastAPI Gateway
+          |
+          v
+Google Colab FastAPI Backend
+          |
+          v
+CTI RAG Processing Pipeline
+          |
+          +--------------------------+
+          |                          |
+          v                          v
+     Hybrid Retrieval          Structured CTI Data
+     ChromaDB + BM25            CVE / Incident Data
+          |                          |
+          +------------+-------------+
+                       |
+                       v
+                Evidence Context
+                       |
+                       v
+               Gemma 2 2B IT
+                       |
+                       v
+             Evidence-based Answer
 ```
 
-Build the frontend for production:
+## Repository Structure
 
-```bash
-npm run build
+```text
+CTI-RAG-Assistant/
+│
+├── api/
+│   └── cti/
+│       ├── health.js
+│       └── query.js
+│
+├── cloud-run-gateway/
+│   ├── .gcloudignore
+│   ├── Dockerfile
+│   ├── main.py
+│   └── requirements.txt
+│
+├── evaluation/
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+│
+├── notebook/
+│   └── CTI_RAG_Assistant.ipynb
+│
+├── requirements.txt.txt
+└── vercel.json
 ```
 
-## API
+## Main Technologies
 
-### Gateway API
+| Component | Technology |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| Frontend hosting | Vercel |
+| API gateway | FastAPI, Google Cloud Run |
+| RAG backend | Python, Google Colab |
+| Language model | `google/gemma-2-2b-it` |
+| Vector database | ChromaDB |
+| Retrieval | Hybrid retrieval using vector search and BM25 |
+| Model and dataset access | Hugging Face |
+| Optional external CTI source | ThreatCluster API |
 
-| Method | Path | Request | Description |
-|---|---|---|---|
-| `GET` | `/healthz` | No body | Gateway liveness check |
-| `GET` | `/api/health` | `X-Gateway-Key` header | Forwards a health request to Colab |
-| `POST` | `/api/query` | JSON body + `X-Gateway-Key` header | Forwards a CTI or email-triage query to Colab |
+## Main Features
 
-### Colab Backend API
+- **Cyber Threat Intelligence Research:** Ask natural-language questions about cybersecurity threats and incidents.
+- **Hybrid Retrieval:** Combines vector similarity search and BM25 keyword retrieval.
+- **CVE Research:** Supports vulnerability-related investigation using available structured and retrieved CTI evidence.
+- **Incident Research:** Retrieves available incident reports and threat intelligence records.
+- **Evidence-based Responses:** Uses retrieved sources to support generated answers.
+- **Email Triage:** Preserves the email analysis functionality.
+- **PhishDestroy:** Supports phishing-domain checks using the available domain blocklist.
+- **Optional Live Intelligence:** Can use the ThreatCluster API when configured and enabled.
 
-| Method | Path | Request | Description |
-|---|---|---|---|
-| `GET` | `/api/health` | `X-Access-Key` header | Returns backend health information |
-| `POST` | `/api/query` | JSON body + `X-Access-Key` header | Processes CTI research or email-triage requests |
+## Security Notes
 
-Example query payload:
-
-```json
-{
-  "question": "What is phishing?",
-  "mode": "cti",
-  "use_live_api": false,
-  "history": []
-}
-```
-
-The query response is designed to include:
-
-- `answer_markdown`
-- `sources_markdown`
-- `timings`
-
-The exact response fields depend on the active backend implementation.
-
-## Evaluation
-
-The project includes evaluation components for examining retrieval performance, response quality, and API performance.
-
-### Notebook Evaluation
-
-The notebook evaluation covers:
-
-- Retrieval latency.
-- Gemma generation latency.
-- Total response latency.
-- Historical CTI questions.
-- Vulnerability-related questions.
-- Ransomware-related questions.
-
-### RAG versus No-Retrieval Baseline
-
-The comparison evaluates the same base model with and without retrieval to examine the contribution of retrieved evidence.
-
-The evaluation should consider:
-
-- Answer correctness.
-- Evidence grounding.
-- Citation validity.
-- Relevance.
-- Appropriate abstention when supporting evidence is unavailable.
-
-### End-to-end API Evaluation
-
-Where the evaluation script and backend endpoints are configured, run:
-
-```bash
-pip install -r requirements.txt
-
-python evaluation/run_api_evaluation.py \
-  --backend https://<your-backend-url> \
-  --key <your-access-key>
-```
-
-The script is intended to measure API response latency, citation counts, and abstention behavior. Confirm that its expected endpoint and authentication format match the current deployment before running it.
-
-## Data Sources and Citation Tags
-
-| Tag | Source | Purpose | Licence / Terms |
-|---|---|---|---|
-| `[C#]` | [ThreatCluster Incident Clusters](https://huggingface.co/datasets/threatcluster/threat-incident-clusters) | Incident summaries, entities, and dates | CC BY 4.0 |
-| `[V#]` | [ThreatCluster CVE Exploitation Signals](https://huggingface.co/datasets/threatcluster/cve-exploitation-signals) | CVE, CVSS, CISA KEV, and exploitation fields | CC BY 4.0 |
-| `[R#]` | [ThreatCluster Ransomware Leak-Site Victims](https://huggingface.co/datasets/threatcluster/ransomware-leak-site-victims) | Ransomware group leak-site claims | CC BY 4.0 |
-| `[S#]` | [Reloading0101 Threat Intelligence Dataset](https://huggingface.co/datasets/reloading0101/threat-intelligence-dataset) | Curated CTI question-and-answer records | CC BY-NC-SA 4.0 |
-| `[S#]` | [Cyber Threat Intelligence Reports](https://huggingface.co/datasets/guychuk/cyber-threat-intelligence-reports) | Historical CTI report archive | See dataset card |
-| — | [PhishDestroy Destroylist](https://huggingface.co/datasets/phishdestroy/destroylist) | Phishing-domain blocklist for email triage | See dataset card |
-| `[L#]` | [ThreatCluster API](https://threatcluster.io/about/api-reference) | Optional live incident and entity enrichment | ThreatCluster terms |
-
-Refer to the individual dataset cards and API terms for current licensing, attribution, and usage requirements.
+- Do not expose API keys in frontend code.
+- Keep Colab and gateway credentials in their respective secret or server-side environment configurations.
+- Do not commit `.env` files or credentials to GitHub.
+- Use the Vercel API proxy and Cloud Run gateway for protected backend communication.
+- Keep the Colab runtime active while the application is in use.
 
 ## Limitations
 
-- **Analyst decision support only:** This application is not a malware sandbox, secure email gateway, or autonomous incident-response platform.
-- **Evidence availability:** Retrieval quality depends on the datasets loaded, indexed, and available during execution.
-- **Blocklist coverage:** A blocklist match is an investigative lead. A non-match does not guarantee that an email or domain is safe.
-- **Unverified leak-site claims:** Ransomware leak-site entries represent threat-actor claims and should not automatically be treated as independently verified breaches.
-- **Static dataset snapshots:** Hugging Face datasets are snapshots and may not contain the latest threat intelligence.
-- **Model limitations:** Gemma may produce reasoning or interpretation errors. Generated answers require analyst verification against the cited records.
-- **Decoding trade-offs:** Greedy decoding supports reproducibility but does not eliminate hallucinations or factual errors.
-- **Colab availability:** Colab runtimes can disconnect after idle or maximum session limits. The backend must be restarted and the gateway configuration checked when this happens.
-- **Preliminary email analysis:** Email triage does not replace sandbox analysis, SPF/DKIM/DMARC verification, or a full incident investigation.
+- The availability of the backend depends on the active Google Colab runtime.
+- GPU and High-RAM access depend on Colab availability and account limits.
+- Responses depend on the coverage and quality of the indexed datasets.
+- Optional live intelligence depends on API availability and valid credentials.
+- Retrieved information should be checked against the cited sources before making operational security decisions.
 
-## Declaration of AI-generated Material
+## Acknowledgement and AI Assistance
 
-In accordance with CP5403 academic integrity requirements, generative AI tools were used during project development.
-
-- **Tools used:** Google Gemini and ChatGPT.
-- **Purpose:** Assistance with React/TypeScript interface development, FastAPI and gateway integration, documentation, debugging, and evaluation-script formatting.
-- **Verification and human oversight:** The author is responsible for reviewing the implementation, checking dataset schemas, testing API behavior, and verifying generated CTI claims against their cited source records.
-
-All AI-assisted development work should be reviewed and accurately disclosed in accordance with the university's academic integrity requirements.
+This project was developed for academic and research purposes. AI tools, including Google Gemini and ChatGPT, were used as development and research assistance where applicable. The final implementation, testing, evaluation, and academic submission should be reviewed by the project author.
