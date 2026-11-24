@@ -337,4 +337,4 @@ CTI-RAG-Assistant/
 
 ## Acknowledgement and AI Assistance
 
-This project was developed for academic and research purposes. AI tools, including Google Gemini, ChatGPT, and Devin, were used as development and research assistance where applicable. The final implementation, testing, evaluation, and academic submission should be reviewed by the project author.
+This project was developed for academic and research purposes. AI tools, including Google Gemini, and ChatGPT were used as development and research assistance where applicable. The final implementation, testing, evaluation, and academic submission should be reviewed by the project author.
