@@ -249,7 +249,9 @@ CTI RAG Processing Pipeline
                                      |
                                      v
                       Evidence-based Answer + Chart JSON
-Repository Structure
+
+```
+## Repository Structure
 CTI-RAG-Assistant/
 │
 ├── api/
@@ -279,7 +281,8 @@ CTI-RAG-Assistant/
 │
 ├── requirements.txt.txt
 └── vercel.json
-Main Technologies
+
+## Main Technologies
 Frontend	React, TypeScript, Vite
 Frontend hosting	Vercel
 API gateway	FastAPI, Google Cloud Run
@@ -291,7 +294,9 @@ Retrieval	Hybrid retrieval using vector search and BM25
 Model and dataset access	Hugging Face
 Live CVE fallback	NIST NVD API (keyless)
 Optional external CTI source	ThreatCluster API
-Main Features
+
+
+ ##Main Features
 Cyber Threat Intelligence Research: Ask natural-language questions about cybersecurity threats and incidents.
 Hybrid Retrieval: Combines vector similarity search and BM25 keyword retrieval.
 NVD Live CVE Fallback: When a requested CVE is missing from the snapshot, the authoritative record is fetched from the NIST NVD API (no key required) and cited as [N#] evidence — so any CVE can be answered, not only those in the dataset.
@@ -302,19 +307,25 @@ Evidence-based Responses: Uses retrieved sources to support generated answers; u
 Conversational Follow-ups: Resolves follow-up questions against the previous turn (typo-tolerant intent matching).
 Email Triage: Classifies suspicious emails and extracts indicators of compromise, cross-checked against the PhishDestroy blocklist.
 Optional Live Intelligence: Can use the ThreatCluster API when configured and enabled.
-Security Notes
+
+
+## Security Notes
 Do not expose API keys in frontend code.
 Keep Colab and gateway credentials in their respective secret or server-side environment configurations.
 Do not commit .env files or credentials to GitHub.
 Use the Vercel API proxy and Cloud Run gateway for protected backend communication.
 The website is public; keys stay server-side. If live ThreatCluster enrichment is enabled, be aware public visitors can consume API quota.
 Keep the Colab runtime active while the application is in use.
-Limitations
+
+
+## Limitations
 The availability of the backend depends on the active Google Colab runtime (free-tier sessions expire after a period of inactivity or a maximum session length).
 GPU and High-RAM access depend on Colab availability and account limits.
 The GPU processes one generation at a time; back-to-back questions queue and may hit the proxy timeout.
 Responses depend on the coverage and quality of the indexed datasets; aggregate statistics reflect only the snapshot's records (e.g. leak-site claims are claims, not confirmed breaches — the answer states this caveat).
 Optional live intelligence depends on API availability and valid credentials.
 Retrieved information should be checked against the cited sources before making operational security decisions.
-Acknowledgement and AI Assistance
+
+
+## Acknowledgement and AI Assistance
 This project was developed for academic and research purposes. AI tools, including Google Gemini, ChatGPT, and Devin, were used as development and research assistance where applicable. The final implementation, testing, evaluation, and academic submission should be reviewed by the project author.
