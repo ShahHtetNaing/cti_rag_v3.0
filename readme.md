@@ -1,9 +1,9 @@
-# CTI RAG Assistant v2.0
+# CTI RAG Assistant v3.0
 
-A Cyber Threat Intelligence (CTI) Retrieval-Augmented Generation assistant designed to help security analysts research cyber threats, vulnerabilities, incidents, and phishing-related information using retrieved evidence.
+A Cyber Threat Intelligence (CTI) Retrieval-Augmented Generation assistant designed to help security analysts research cyber threats, vulnerabilities, incidents, and phishing-related information using retrieved, cited evidence — never unsupported model memory.
 
 **Live website:** [https://cti-rag-v3-0.vercel.app/](https://cti-rag-v3-0.vercel.app/)
-(publicly accessible while the author's Colab backend is running — no keys or login needed for visitors)
+(publicly accessible while the author's backend runtime is running — no keys or login needed for visitors)
 
 ---
 
@@ -12,13 +12,14 @@ A Cyber Threat Intelligence (CTI) Retrieval-Augmented Generation assistant desig
 There are two ways to try the assistant:
 
 1. **Use the deployed website** — open the link above. It works as long as the
-   author's Colab runtime is alive. No keys required.
-2. **Re-run the notebook yourself** — you only need your own **free
-   `HF_TOKEN`** ([huggingface.co → Settings → Access Tokens](https://huggingface.co/settings/tokens))
-   added in the Colab **Secrets** panel. Run all cells, then use the Gradio
-   interface that launches inside the notebook. It also prints a temporary
-   public `https://*.gradio.live` link — a real web UI backed by your own
-   runtime, shareable for ~72 hours.
+   author's Colab/Kaggle runtime is alive. No keys required.
+2. **Re-run the notebook yourself** — you only need your own **free `HF_TOKEN`**
+   ([huggingface.co → Settings → Access Tokens](https://huggingface.co/settings/tokens))
+   added in the Colab **Secrets** panel or Kaggle **Add-ons → Secrets**. Run all
+   cells, then use the **Upgraded UI Gradio (Ver-3)** interface — the final
+   version of the in-notebook app. It also prints a temporary public
+   `https://*.gradio.live` link — a real web UI backed by your own runtime,
+   shareable for ~72 hours.
 
 `CTI_ACCESS_KEY`, `NGROK_AUTHTOKEN`, and `THREATCLUSTER_API_KEY` are **not**
 needed to re-run — they only serve the public API for the author's deployment.
@@ -26,7 +27,8 @@ The final API-serving cell detects missing secrets and skips itself with an
 explanation instead of failing.
 
 The notebook file itself contains **no credentials** — every secret is read at
-runtime via `google.colab.userdata.get()`.
+runtime, auto-detecting the platform: environment variables → Colab Secrets →
+Kaggle Secrets. The same file runs on either platform with no code changes.
 
 ---
 
@@ -34,7 +36,7 @@ runtime via `google.colab.userdata.get()`.
 
 Follow these steps in order to start the CTI RAG Assistant.
 
-### Step 1: Open the Google Colab Notebook
+### Step 1: Open the Notebook
 
 1. Open this GitHub repository.
 2. Navigate to the `notebook` folder.
@@ -46,7 +48,9 @@ Follow these steps in order to start the CTI RAG Assistant.
 5. Select **File → Upload notebook**.
 6. Upload `CTI_RAG_Assistant.ipynb`.
 
-You can also open the notebook directly from Google Colab if you have connected your GitHub repository.
+*(Kaggle is also supported as a backup runtime: import the notebook, enable
+Internet in Session options, and select a GPU accelerator. A phone-verified
+account is required for Kaggle internet access.)*
 
 ### Step 2: Configure the Runtime
 
@@ -62,24 +66,25 @@ For faster processing, configure the Google Colab runtime before executing the n
 
 | Setting | Recommended option |
 |---|---|
-| Runtime environment | Google Colab |
+| Runtime environment | Google Colab (Kaggle supported as backup) |
 | Hardware accelerator | T4 GPU |
 | System RAM | High-RAM, if available |
 | Notebook | `CTI_RAG_Assistant.ipynb` |
 
-**Important:** T4 GPU and High-RAM availability depends on your Google Colab plan, usage limits, and available resources. A GPU does not automatically accelerate every operation; retrieval, embedding, and language generation may use different resources.
+**Important:** T4 GPU and High-RAM availability depends on your platform plan, usage limits, and available resources. A GPU does not automatically accelerate every operation; retrieval, embedding, and language generation may use different resources.
 
 ### Step 3: Configure Secrets and API Keys
 
-Before running the notebook, configure the required secrets in Google Colab.
+Before running the notebook, configure the required secrets.
 
-Open the **Secrets** panel (key icon) and add the credentials required by the notebook.
+**On Colab:** open the **Secrets** panel (key icon).
+**On Kaggle:** open **Add-ons → Secrets**.
 
 | Secret | Purpose | Required? |
 |---|---|---|
 | `HF_TOKEN` | Hugging Face access for downloading the Gemma model and datasets | **Yes** — free token from your own HF account |
-| `NGROK_AUTHTOKEN` | Starts the public tunnel so the deployed website can reach Colab | Only to serve the public API |
-| `CTI_ACCESS_KEY` | Self-chosen password securing the Cloud Run → Colab connection | Only to serve the public API |
+| `NGROK_AUTHTOKEN` | Starts the public tunnel so the deployed website can reach the notebook backend | Only to serve the public API |
+| `CTI_ACCESS_KEY` | Self-chosen password securing the Cloud Run → notebook backend connection | Only to serve the public API |
 | `THREATCLUSTER_API_KEY` | Optional access to the live ThreatCluster API | Optional |
 
 Enable notebook access to the secrets where required.
@@ -96,33 +101,38 @@ Never publish API keys, access tokens, or private credentials in GitHub or front
 
 **Note:** the first query after a restart is slower (GPU warm-up). Send one query, wait for the answer, then continue testing. Avoid firing multiple questions back-to-back — the GPU processes one generation at a time.
 
-Keep the Colab runtime running while using the website. If the runtime disconnects or stops, the backend may become unavailable.
+Keep the runtime session running while using the website. If it disconnects or stops, the backend becomes unavailable.
 
-### Step 5: Start the Secure Backend Connection
+### Step 5: Use the Interface
 
-The deployed application uses a secure connection architecture:
+The notebook contains **two Gradio interfaces**:
 
-**Analyst Browser → Vercel Frontend → Vercel API Proxy → Cloud Run Gateway → Google Colab Backend**
+| Cell | Interface | Purpose |
+|---|---|---|
+| "Gradio (Ver-2)" | Original simple UI | First version — kept for reference |
+| **"Upgraded UI Gradio (Ver-3)"** | **Final interface** | **Use this one** — same behavior as the Vercel website |
 
-The backend and access keys are configured on the server. Users do not need to enter backend URLs or access keys in the browser.
+The **Ver-3 interface** has three tabs mirroring the deployed website:
 
-The Cloud Run gateway uses the following server-side configuration:
+- **CTI Research** — ask questions; one-click sample questions run instantly;
+  a dedicated **follow-up question box** (with example chips like "Mitigation
+  for that?") uses the previous answer as context.
+- **Email Triage** — paste a suspicious email to classify it (phishing /
+  legitimate) with extracted indicators cited as `[IOC#]` evidence.
+- **RAG vs Base Model** — runs the same question through the full RAG pipeline
+  **and** through Gemma-2-2B with *no retrieval*, side-by-side, with a
+  comparison table (response time, citation count, grounding, abstention
+  behaviour). Use this to demonstrate why retrieval-grounded answers beat raw
+  model memory.
 
-| Environment variable | Purpose |
-|---|---|
-| `COLAB_BACKEND_URL` | Colab backend URL (the ngrok static domain) |
-| `COLAB_ACCESS_KEY` | Authentication key forwarded to the Colab backend |
-| `GATEWAY_API_KEY` | Authentication key used by the Vercel API proxy to access the gateway |
+Running the Ver-3 cell prints a `gradio.live` share link and a local URL. It
+closes the older UI automatically if it is still open.
 
-Ensure these variables are configured in the appropriate deployment environment before testing the application.
+### Step 6: Open the Deployed Website (optional)
 
-### Step 6: Open the CTI RAG Assistant Website
-
-After the Colab notebook has completed initialization and the backend is running, open:
+For the full production experience, open:
 
 **[https://cti-rag-v3-0.vercel.app/](https://cti-rag-v3-0.vercel.app/)**
-
-Wait for the connection status to appear.
 
 The expected successful connection message is:
 
@@ -131,19 +141,11 @@ The expected successful connection message is:
 - This website connects through its secure Vercel API proxy. Backend URLs and access keys are configured on the server and are not entered or stored in your browser.
 - **Connected through Vercel · google/gemma-2-2b-it · 94894 vector chunks indexed.**
 
-The application should also display the **Check connection** option.
-
-When these indicators appear, the website is reporting that it has connected to the backend through the Vercel API proxy and is using the configured Gemma model and indexed vector collection.
-
-### Step 7: Ask Questions to the CTI Research Assistant
-
-Once the backend connection is successful, you can start asking questions about Cyber Threat Intelligence.
-
-For example:
+### Step 7: Sample Questions
 
 **Basic CTI question**
 
-> What is phishing, and how can organizations prevent it?
+> What is phishing?
 
 **CVE investigation** *(any CVE — live NVD fallback covers CVEs missing from the snapshot)*
 
@@ -151,53 +153,45 @@ For example:
 
 **Threat research**
 
-> What is a wiper attack? Explain it in simple terms, provide a documented real-world example, and recommend defensive measures.
+> Explain what a wiper attack is in simple terms, provide a real case study example, and give step-by-step defensive mitigations.
 
 **Healthcare ransomware research**
 
-> Identify two documented ransomware incidents involving healthcare organizations. Explain their impacts and how the organizations responded.
+> Give two documented healthcare ransomware cases and explain their impact and documented response.
 
-**Incident analysis**
+**Dataset statistics** *(deterministic — answers in under a second)*
 
-> What are the common techniques used by ransomware groups to gain initial access to an organization's network?
-
-**Dataset statistics — returns a visual bar chart + percentage breakdown**
-
-> In 2026, which sectors were targeted most by ransomware?
+> In 2026, which sectors were targeted most in ransomware leak-site claims? Show the percentage breakdown.
 
 > What types of cyberattacks were most common in 2026?
 
-> Which ransomware groups were most active?
+**Follow-up** *(after any answer)*
 
-**Email Triage**
+> Mitigation for that?
 
-Switch to the **Email Triage** tab and paste a suspicious email to classify it
-(phishing / legitimate), with extracted indicators of compromise cited as
-`[IOC#]` evidence.
+Citation labels used in answers: `[S#]` retrieved evidence · `[C#]` case-study
+records · `[V#]`/`[R#]` structured CVE/ransomware records · `[N#]` live NVD
+records · `[L#]` live ThreatCluster records · `[AGG#]` computed dataset
+statistics · `[IOC#]` extracted email indicators.
 
-**Follow-up questions**
-
-The assistant remembers the previous turn — e.g. ask *"what is CVE-2021-26855?"*
-then *"mitigation for that?"* and it deepens the same investigation.
-
-The assistant uses retrieved CTI information to support its responses. Check the citations and source references provided with the answers: `[S#]` retrieval evidence, `[C#]` structured CVE/CVE records, `[N#]` live NVD records, `[AGG#]` computed dataset statistics, `[IOC#]` extracted email indicators.
-
-If the selected datasets do not contain sufficient evidence, the assistant indicates that the information cannot be found in the available sources rather than inventing facts.
+If the selected datasets do not contain sufficient evidence, the assistant
+says so rather than inventing facts.
 
 ### Step 8: Troubleshooting
 
 | Problem | Recommended action |
 |---|---|
-| Backend offline | Check whether the Colab runtime is still running and the backend service started successfully |
+| Backend offline | Check whether the notebook session is still running and the backend service started successfully |
 | HTTP 504 / connection timed out | The query exceeded the proxy's 55 s limit — usually the first (warm-up) query or a queued request. Wait ~30 s and retry; ask one question at a time |
 | Secure connection failed | Check the Vercel API proxy and Cloud Run gateway configuration |
-| Authentication error | Verify the configured gateway and Colab access keys |
+| Authentication error | Verify the configured gateway and backend access keys |
 | Notebook runs slowly | Check the runtime type, GPU availability, RAM usage, and model initialization |
 | No relevant CTI results | Check dataset loading, indexing, and retrieval configuration |
-| Website cannot reach backend | Check the Cloud Run service and the Colab backend URL |
+| Website cannot reach backend | Check the Cloud Run service and the notebook backend URL |
 | Last cell skipped (missing secrets) | Expected for re-runners — add `NGROK_AUTHTOKEN` + `CTI_ACCESS_KEY` only if you want to serve the public API |
+| Old Gradio UI still running | The Ver-3 cell closes the previous demo automatically — just re-run it |
 
-If you restart the Colab runtime, re-execute the notebook. Because the backend uses an ngrok **static** domain, the Cloud Run `COLAB_BACKEND_URL` does not need updating after a restart.
+If you restart the runtime, re-execute the notebook. Because the backend uses an ngrok **static** domain, the Cloud Run `COLAB_BACKEND_URL` does not need updating — and it works identically whether the backend runs on Colab or Kaggle. Only one runtime can hold the tunnel at a time.
 
 ---
 
@@ -221,9 +215,13 @@ The assistant answers strictly from the following sources:
 ```text
 Analyst / Security Researcher
           |
-          v
-Vercel React Frontend  (chat UI, citation badges, bar-chart visualisation)
-          |
+          +------------------------------+
+          |                              |
+          v                              v
+Vercel React Frontend          Gradio Ver-3 UI (in-notebook)
+(chat UI, citation badges,     (same pipeline — research,
+ bar-chart visualisation)       follow-ups, email triage,
+          |                     RAG-vs-base compare)
           v
 Vercel API Routes      (server-side proxy, 55 s timeout)
           |
@@ -231,7 +229,7 @@ Vercel API Routes      (server-side proxy, 55 s timeout)
 Cloud Run FastAPI Gateway
           |
           v
-Google Colab FastAPI Backend   (ngrok static domain)
+Notebook FastAPI Backend — Colab or Kaggle   (ngrok static domain)
           |
           v
 CTI RAG Processing Pipeline
@@ -252,89 +250,3 @@ CTI RAG Processing Pipeline
                                      |
                                      v
                       Evidence-based Answer + Chart JSON
-```
-
-## Repository Structure
-
-```text
-CTI-RAG-Assistant/
-│
-├── api/
-│   └── cti/
-│       ├── health.js
-│       └── query.js
-│
-├── cloud-run-gateway/
-│   ├── .gcloudignore
-│   ├── Dockerfile
-│   ├── main.py
-│   └── requirements.txt
-│
-├── evaluation/
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   └── vite.config.ts
-│
-├── notebook/
-│   └── CTI_RAG_Assistant.ipynb
-│
-├── requirements.txt.txt
-└── vercel.json
-```
-
-## Main Technologies
-
-| Component | Technology |
-|---|---|
-| Frontend | React, TypeScript, Vite |
-| Frontend hosting | Vercel |
-| API gateway | FastAPI, Google Cloud Run |
-| RAG backend | Python, FastAPI, ngrok, Google Colab |
-| In-notebook UI | Gradio (embedded + `gradio.live` share link) |
-| Language model | `google/gemma-2-2b-it` |
-| Vector database | ChromaDB |
-| Retrieval | Hybrid retrieval using vector search and BM25 |
-| Model and dataset access | Hugging Face |
-| Live CVE fallback | NIST NVD API (keyless) |
-| Optional external CTI source | ThreatCluster API |
-
-## Main Features
-
-- **Cyber Threat Intelligence Research:** Ask natural-language questions about cybersecurity threats and incidents.
-- **Hybrid Retrieval:** Combines vector similarity search and BM25 keyword retrieval.
-- **CVE Research:** Supports vulnerability-related investigation using available structured and retrieved CTI evidence.
-- **NVD Live CVE Fallback:** When a requested CVE is missing from the selected snapshot, the authoritative record is fetched from the NIST NVD API (no key required) and cited as `[N#]` evidence — so any CVE can be answered, not only those in the dataset.
-- **Dataset Aggregate Analytics:** Statistics questions (sector targeting, attack-type distribution, ransomware-group activity, CVSS severity, year filtering) are computed deterministically from the loaded datasets and returned as percentage breakdowns with a bar-chart visualisation and `[AGG#]` citations.
-- **Incident Research:** Retrieves available incident reports and threat intelligence records for case-study questions.
-- **Evidence-based Responses:** Uses retrieved sources to support generated answers; uncited model claims are automatically attached to matching evidence or dropped, so a grounded answer is produced whenever records exist.
-- **Conversational Follow-ups:** Resolves follow-up questions against the previous turn (typo-tolerant intent matching).
-- **Email Triage:** Classifies suspicious emails and extracts indicators of compromise, cross-checked against the PhishDestroy blocklist.
-- **Optional Live Intelligence:** Can use the ThreatCluster API when configured and enabled.
-
-## Security Notes
-
-- Do not expose API keys in frontend code.
-- Keep Colab and gateway credentials in their respective secret or server-side environment configurations.
-- Do not commit `.env` files or credentials to GitHub.
-- Use the Vercel API proxy and Cloud Run gateway for protected backend communication.
-- The website is public; keys stay server-side. If live ThreatCluster enrichment is enabled, be aware public visitors can consume API quota.
-- Keep the Colab runtime active while the application is in use.
-
-## Limitations
-
-- The availability of the backend depends on the active Google Colab runtime (free-tier sessions expire after a period of inactivity or a maximum session length).
-- GPU and High-RAM access depend on Colab availability and account limits.
-- The GPU processes one generation at a time; back-to-back questions queue and may hit the proxy timeout.
-- Responses depend on the coverage and quality of the indexed datasets; aggregate statistics reflect only the snapshot's records (e.g. leak-site claims are claims, not confirmed breaches — the answer states this caveat).
-- Optional live intelligence depends on API availability and valid credentials.
-- Retrieved information should be checked against the cited sources before making operational security decisions.
-
-## Acknowledgement and AI Assistance
-
-This project was developed for academic and research purposes. AI tools, including Google Gemini, and ChatGPT were used as development and research assistance where applicable. The final implementation, testing, evaluation, and academic submission should be reviewed by the project author.
