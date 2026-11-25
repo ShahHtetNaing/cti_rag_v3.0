@@ -251,80 +251,50 @@ CTI RAG Processing Pipeline
                       Evidence-based Answer + Chart JSON
 
 ```
-## Repository Structure
-CTI-RAG-Assistant/
-│
-├── api/
-│   └── cti/
-│       ├── health.js
-│       └── query.js
-│
-├── cloud-run-gateway/
-│   ├── .gcloudignore
-│   ├── Dockerfile
-│   ├── main.py
-│   └── requirements.txt
-│
-├── evaluation/
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   └── vite.config.ts
-│
-├── notebook/
-│   └── CTI_RAG_Assistant.ipynb
-│
-├── requirements.txt.txt
-└── vercel.json
 
 ## Main Technologies
-Frontend	React, TypeScript, Vite
-Frontend hosting	Vercel
-API gateway	FastAPI, Google Cloud Run
-RAG backend	Python, FastAPI, ngrok, Google Colab
-In-notebook UI	Gradio Ver-3 (embedded + gradio.live share link)
-Language model	google/gemma-2-2b-it
-Vector database	ChromaDB
-Retrieval	Hybrid retrieval using vector search and BM25
-Model and dataset access	Hugging Face
-Live CVE fallback	NIST NVD API (keyless)
-Optional external CTI source	ThreatCluster API
+Frontend	React, TypeScript, Vite </br>
+Frontend hosting	Vercel </br>
+API gateway	FastAPI, Google Cloud Run </br>
+RAG backend	Python, FastAPI, ngrok, Google Colab </br>
+In-notebook UI	Gradio Ver-3 (embedded + gradio.live share link) </br>
+Language model	google/gemma-2-2b-it </br>
+Vector database	ChromaDB </br>
+Retrieval	Hybrid retrieval using vector search and BM25 </br>
+Model and dataset access	Hugging Face </br>
+Live CVE fallback	NIST NVD API (keyless) </br>
+Optional external CTI source	ThreatCluster API </br>
 
 
  ##Main Features
-Cyber Threat Intelligence Research: Ask natural-language questions about cybersecurity threats and incidents.
-Hybrid Retrieval: Combines vector similarity search and BM25 keyword retrieval.
-NVD Live CVE Fallback: When a requested CVE is missing from the snapshot, the authoritative record is fetched from the NIST NVD API (no key required) and cited as [N#] evidence — so any CVE can be answered, not only those in the dataset.
-Dataset Aggregate Analytics: Statistics questions (sector targeting, attack-type distribution, ransomware-group activity, CVSS severity, year filtering) are computed deterministically and returned as percentage breakdowns with a bar-chart visualisation and [AGG#] citations.
+Cyber Threat Intelligence Research: Ask natural-language questions about cybersecurity threats and incidents. </br>
+Hybrid Retrieval: Combines vector similarity search and BM25 keyword retrieval. </br>
+NVD Live CVE Fallback: When a requested CVE is missing from the snapshot, the authoritative record is fetched from the NIST NVD API (no key required) and cited as [N#] evidence — so any CVE can be answered, not only those in the dataset. </br>
+Dataset Aggregate Analytics: Statistics questions (sector targeting, attack-type distribution, ransomware-group activity, CVSS severity, year filtering) are computed deterministically and returned as percentage breakdowns with a bar-chart visualisation and [AGG#] citations. </br>
 RAG vs Base Comparison: Built-in tab runs the same question through the RAG pipeline and the base Gemma model with no retrieval — demonstrating grounded vs ungrounded answers side-by-side.
-Incident Research: Retrieves available incident reports and threat intelligence records for case-study questions.
-Evidence-based Responses: Uses retrieved sources to support generated answers; uncited model claims are automatically attached to matching evidence or dropped, so a grounded answer is produced whenever records exist.
-Conversational Follow-ups: Resolves follow-up questions against the previous turn (typo-tolerant intent matching).
-Email Triage: Classifies suspicious emails and extracts indicators of compromise, cross-checked against the PhishDestroy blocklist.
-Optional Live Intelligence: Can use the ThreatCluster API when configured and enabled.
+Incident Research: Retrieves available incident reports and threat intelligence records for case-study questions. </br>
+Evidence-based Responses: Uses retrieved sources to support generated answers; uncited model claims are automatically attached to matching evidence or dropped, so a grounded answer is produced whenever records exist. </br>
+Conversational Follow-ups: Resolves follow-up questions against the previous turn (typo-tolerant intent matching). </br>
+Email Triage: Classifies suspicious emails and extracts indicators of compromise, cross-checked against the PhishDestroy blocklist. </br>
+Optional Live Intelligence: Can use the ThreatCluster API when configured and enabled. </br>
 
 
 ## Security Notes
-Do not expose API keys in frontend code.
-Keep Colab and gateway credentials in their respective secret or server-side environment configurations.
-Do not commit .env files or credentials to GitHub.
-Use the Vercel API proxy and Cloud Run gateway for protected backend communication.
-The website is public; keys stay server-side. If live ThreatCluster enrichment is enabled, be aware public visitors can consume API quota.
-Keep the Colab runtime active while the application is in use.
+Do not expose API keys in frontend code.</br>
+Keep Colab and gateway credentials in their respective secret or server-side environment configurations. </br>
+Do not commit .env files or credentials to GitHub. </br>
+Use the Vercel API proxy and Cloud Run gateway for protected backend communication. </br>
+The website is public; keys stay server-side. If live ThreatCluster enrichment is enabled, be aware public visitors can consume API quota. </br>
+Keep the Colab runtime active while the application is in use. </br>
 
 
 ## Limitations
-The availability of the backend depends on the active Google Colab runtime (free-tier sessions expire after a period of inactivity or a maximum session length).
-GPU and High-RAM access depend on Colab availability and account limits.
-The GPU processes one generation at a time; back-to-back questions queue and may hit the proxy timeout.
-Responses depend on the coverage and quality of the indexed datasets; aggregate statistics reflect only the snapshot's records (e.g. leak-site claims are claims, not confirmed breaches — the answer states this caveat).
-Optional live intelligence depends on API availability and valid credentials.
-Retrieved information should be checked against the cited sources before making operational security decisions.
+The availability of the backend depends on the active Google Colab runtime (free-tier sessions expire after a period of inactivity or a maximum session length). </br>
+GPU and High-RAM access depend on Colab availability and account limits. </br>
+The GPU processes one generation at a time; back-to-back questions queue and may hit the proxy timeout. </br>
+Responses depend on the coverage and quality of the indexed datasets; aggregate statistics reflect only the snapshot's records (e.g. leak-site claims are claims, not confirmed breaches — the answer states this caveat). </br>
+Optional live intelligence depends on API availability and valid credentials. </br>
+Retrieved information should be checked against the cited sources before making operational security decisions. </br>
 
 
 ## Acknowledgement and AI Assistance
